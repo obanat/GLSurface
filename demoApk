@@ -1,0 +1,69 @@
+
+
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
+import android.os.IBinder;
+import android.os.RemoteException;
+import android.util.Log;
+
+
+public class FaceUnity {
+
+
+    private Context mContext;
+
+    private IFaceUnityCapture mFaceUnity;
+
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder iBinder) {
+            Log.d(TAG, "onServiceConnected: bind succeed.");
+            mFaceUnity = IFaceUnityCapture.Stub.asInterface(iBinder);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+            Log.d(TAG, "onServiceDisconnected: unbind succeed.");
+            mFaceUnity = null;
+        }
+    };
+
+    public FaceUnity(Context context) {
+        mContext = context;
+        try {
+            Intent intent = new Intent();
+            intent.setPackage("com.xxx");
+            intent.setAction("com.xxx");
+            mContext.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        } catch (SecurityException e) {
+            Log.e(TAG, "bindService  fail, SecurityException");
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "bindService fail, IllegalStateException");
+        } catch (Exception e) {
+            Log.e(TAG, "bindService fail, " + e.getClass().getSimpleName());
+        }
+    }
+
+    public byte[] beautyFace(byte[] img, int w, int h, float blurLevel, boolean isFirstFrame) {
+        try {
+            if (mFaceUnity != null) {
+                return mFaceUnity.beautyFace(img, w, h, blurLevel, isFirstFrame);
+            }
+        } catch (RemoteException e) {
+            Log.e(TAG, "faceunity fail " + e);
+        }
+        return new byte[0];
+    }
+
+    /**
+     * destroy
+     */
+    public void releaseResource() {
+        Log.d(TAG, "releaseResource IFaceUnityCapture");
+        if (mFaceUnity != null) {
+            mContext.unbindService(mConnection);
+        }
+    }
+}
