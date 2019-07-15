@@ -1,0 +1,71 @@
+package xx
+
+import android.app.Service;
+import android.content.Intent;
+import android.os.IBinder;
+import android.util.Log;
+import com.faceunity.FURenderer;
+
+
+public class FaceUnityCaptureService extends Service {
+    private static final String TAG = "FaceUnityCaptureService";
+
+    private static final int SLEEP_TIME_INITSDK = 300;
+
+    private FURenderer mFURenderer;
+
+    private boolean mIsFirstFrame = true;
+
+    public FaceUnityCaptureService() {
+        Log.i(TAG, "init FaceUnityCaptureService");
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        Log.i(TAG, "onBind FaceUnityCaptureService.... context = " + this + " currentThreadId = "
+            + Thread.currentThread().getId() + "   isFirstFrame = " + mIsFirstFrame);
+
+        FURenderer.initFURenderer(this);
+        mFURenderer = new FURenderer
+            .Builder(this).createEGLContext(true)
+            .setNeedFaceBeauty(true).needReadBackImage(true).inputImageFormat(2).build();
+
+        return mBinder;
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        Log.i(TAG, "onUnbind FaceUnityCaptureService....");
+        if (null != mFURenderer) {
+            mFURenderer.onSurfaceDestroyed();
+        }
+        return super.onUnbind(intent);
+    }
+
+    private IFaceUnityCapture.Stub mBinder = new IFaceUnityCapture.Stub() {
+
+        @Override
+        public byte[] beautyFace(byte[] img, int w, int h, float blurLevel, boolean isFirstFrame1) {
+            if (mFURenderer == null) {
+                Log.e(TAG, "FURenderer instance is null.");
+                return new byte[0];
+            }
+            Log.i(TAG, "enter FaceUnityCaptureService onDrawFrame....currentThreadId = "
+                + Thread.currentThread().getId());
+            if (mIsFirstFrame) {
+                mFURenderer.onSurfaceCreated();
+                try {
+                    Thread.sleep(SLEEP_TIME_INITSDK);
+                } catch (InterruptedException e) {
+                    Log.e(TAG, "onSurfaceCreated catch InterruptedException");
+                }
+                mIsFirstFrame = false;
+            }
+
+            byte[] readBackImg = new byte[img.length];
+            mFURenderer.onBlurLevelSelected(blurLevel);
+            mFURenderer.onDrawFrame(img, w, h, readBackImg, w, h);
+            return readBackImg;
+        }
+    };
+}
